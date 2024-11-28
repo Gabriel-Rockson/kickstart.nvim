@@ -1,5 +1,4 @@
 --[[
-
 =====================================================================
 ==================== READ THIS BEFORE CONTINUING ====================
 =====================================================================
@@ -138,8 +137,8 @@ vim.opt.updatetime = 250
 vim.opt.relativenumber = true
 
 -- Decrease mapped sequence wait time
--- Displays which-key popup sooner
-vim.opt.timeoutlen = 300
+-- Displays which-key popup  later
+vim.opt.timeoutlen = 1000
 
 -- Configure how new splits should be opened
 vim.opt.splitright = true
@@ -154,13 +153,15 @@ vim.opt.listchars = { tab = '» ', trail = '·', nbsp = '␣' }
 -- Preview substitutions live, as you type!
 vim.opt.inccommand = 'split'
 
+-- Obsidian needs conceallevel to be 1 see issue; https://github.com/epwalsh/obsidian.nvim/issues/286
+vim.opt.conceallevel = 1
+
 -- Show which line your cursor is on
 vim.opt.cursorline = true
 
 -- Optimize redrawtime
 vim.opt.redrawtime = 10000
 vim.opt.updatetime = 300
-vim.opt.timeoutlen = 500
 vim.opt.lazyredraw = true
 
 -- Disable certain features for large files
@@ -174,6 +175,17 @@ vim.opt.scrolloff = 10
 
 -- [[ Basic Keymaps ]]
 --  See `:help vim.keymap.set()`
+
+vim.keymap.set('n', '<leader>S', '<cmd>lua require("spectre").toggle()<CR>', {
+  desc = 'Toggle Spectre',
+})
+
+vim.keymap.set('n', '<leader>sc', '<cmd>lua require("spectre").open_file_search({select_word=true})<CR>', {
+  desc = 'Search on current file',
+})
+
+-- Use jj to go to normal mode
+vim.keymap.set('i', 'jj', '<Esc>')
 
 -- Clear highlights on search when pressing <Esc> in normal mode
 --  See `:help hlsearch`
@@ -220,9 +232,16 @@ vim.api.nvim_create_autocmd('TextYankPost', {
   desc = 'Highlight when yanking (copying) text',
   group = vim.api.nvim_create_augroup('kickstart-highlight-yank', { clear = true }),
   callback = function()
-    vim.highlight.on_yank()
+    vim.hl.on_yank()
   end,
 })
+
+vim.cmd [[
+  augroup user_colors
+    autocmd!
+    autocmd ColorScheme * highlight Normal ctermbg=NONE guibg=NONE
+  augroup END
+]]
 
 -- [[ Install `lazy.nvim` plugin manager ]]
 --    See `:help lazy.nvim.txt` or https://github.com/folke/lazy.nvim for more info
@@ -293,8 +312,27 @@ require('lazy').setup({
 
   { -- Useful plugin to show you pending keybinds.
     'folke/which-key.nvim',
-    event = 'VimEnter', -- Sets the loading event to 'VimEnter'
+    event = 'VeryLazy', -- Sets the loading event to 'VimEnter'
+    keys = {
+      {
+        '<leader>?',
+
+        function()
+          require('which-key').show {
+            loop = true, -- this will keep the popup open until you hit <esc>
+          }
+        end,
+        desc = 'Buffer Local Keymaps (which-key)',
+      },
+    },
     opts = {
+      -- triggers = {}, -- or set to empty {} to disable automatic triggers
+      -- show_help = false, -- disable the help popup when pressing leader
+      show_keys = true, -- disable showing keys in the command line
+      -- disable = {
+      --   buftypes = {},
+      --   filetypes = {},
+      -- },
       icons = {
         -- set icon mappings to true if you have a Nerd Font
         mappings = vim.g.have_nerd_font,
@@ -336,7 +374,7 @@ require('lazy').setup({
       spec = {
         { '<leader>c', group = '[C]ode', mode = { 'n', 'x' } },
         { '<leader>d', group = '[D]ocument' },
-        { '<leader>r', group = '[R]ename' },
+        { '<leader>r', group = '[R]efactor' },
         { '<leader>s', group = '[S]earch' },
         { '<leader>w', group = '[W]orkspace' },
         { '<leader>t', group = '[T]oggle' },
@@ -408,6 +446,13 @@ require('lazy').setup({
         --   },
         -- },
         -- pickers = {}
+        defaults = {
+          layout_strategy = 'vertical',
+          layout_config = {
+            height = 0.95,
+            width = 0.9, -- 80% of screen width
+          },
+        },
         extensions = {
           ['ui-select'] = {
             require('telescope.themes').get_dropdown(),
@@ -431,6 +476,14 @@ require('lazy').setup({
       vim.keymap.set('n', '<leader>sr', builtin.resume, { desc = '[S]earch [R]esume' })
       vim.keymap.set('n', '<leader>s.', builtin.oldfiles, { desc = '[S]earch Recent Files ("." for repeat)' })
       vim.keymap.set('n', '<leader><leader>', builtin.buffers, { desc = '[ ] Find existing buffers' })
+      vim.keymap.set('n', '<leader>sv', builtin.git_files, { desc = '[S]earch [V]ersion Control Tracked Files' })
+
+      vim.keymap.set('n', '<leader><leader>', function()
+        builtin.buffers {
+          sort_mru = true,
+          sort_lastused = true,
+        }
+      end, { desc = '[ ] Find existing buffers' })
 
       -- Slightly advanced example of overriding default behavior and theme
       vim.keymap.set('n', '<leader>/', function()
@@ -671,7 +724,6 @@ require('lazy').setup({
         'gopls',
         'pyright',
         'ruff',
-        'black',
         'eslint',
         'prettier',
         'prettierd',
@@ -728,7 +780,7 @@ require('lazy').setup({
       end,
       formatters_by_ft = {
         lua = { 'stylua' },
-        python = { 'ruff_fix', 'ruff_format', 'ruff_organize_imports', 'black' },
+        python = { 'ruff_fix', 'ruff_format', 'ruff_organize_imports' },
         -- You can use 'stop_after_first' to run the first available formatter from the list
         javascript = { 'prettierd', 'prettier', stop_after_first = true },
         typescript = { 'prettierd', 'prettier', stop_after_first = true },
@@ -860,13 +912,14 @@ require('lazy').setup({
     -- change the command in the config to whatever the name of that colorscheme is.
     --
     -- If you want to see what colorschemes are already installed, you can use `:Telescope colorscheme`.
-    'folke/tokyonight.nvim',
+    'catppuccin/nvim',
+    name = 'catppuccin',
     priority = 1000, -- Make sure to load this before all the other start plugins.
     init = function()
       -- Load the colorscheme here.
       -- Like many other themes, this one has different styles, and you could load
-      -- any other, such as 'tokyonight-storm', 'tokyonight-moon', or 'tokyonight-day'.
-      vim.cmd.colorscheme 'tokyonight-moon'
+      --colorscheme catppuccin " catppuccin-latte, catppuccin-frappe, catppuccin-macchiato, catppuccin-mocha
+      vim.cmd.colorscheme 'catppuccin-mocha'
 
       -- You can configure highlights by doing something like:
       vim.cmd.hi 'Comment gui=none'
